@@ -1,12 +1,15 @@
+// Blocked domains come from Firefox's 3rdparty managed-storage policy,
+// set inline from nixos-config (shared/js-blocked-domains.nix).
 async function applyBlocking() {
-  const res = await fetch(browser.runtime.getURL("patterns.txt"));
-  const text = await res.text();
-  const patterns = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith("#"));
+  let domains = [];
+  try {
+    const managed = await browser.storage.managed.get("patterns");
+    if (Array.isArray(managed.patterns)) domains = managed.patterns;
+  } catch (e) {
+    // no managed storage configured — nothing to block
+  }
 
-  const urls = patterns.map((p) => `*://${p}/*`);
+  const urls = domains.map((d) => `*://*.${d}/*`);
   if (!urls.length) return;
 
   browser.webRequest.onHeadersReceived.addListener(

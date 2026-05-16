@@ -18,7 +18,7 @@
             src = self;
             nativeBuildInputs = [ pkgs.zip ];
             buildPhase = ''
-              zip -r extension.xpi manifest.json background.js patterns.txt
+              zip -r extension.xpi manifest.json background.js
             '';
             installPhase = ''
               mkdir -p $out/${extDir}
