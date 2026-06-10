@@ -1,31 +1,30 @@
 {
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  description = "firefox-block-js — block JavaScript on a configurable domain list";
 
-  outputs = { self, nixpkgs }:
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nix-webext.url = "github:rivavolt/nix-webext";
+  };
+
+  outputs = { self, nixpkgs, nix-webext }:
     let
-      forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
+      forAllSystems = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
     in {
       packages = forAllSystems (system:
         let
-          pkgs = import nixpkgs { inherit system; };
+          pkgs = nixpkgs.legacyPackages.${system};
           manifest = builtins.fromJSON (builtins.readFile ./manifest.json);
-          geckoId = manifest.browser_specific_settings.gecko.id;
-          extDir = "share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
-        in {
-          default = pkgs.stdenv.mkDerivation {
-            pname = "firefox-block-js";
-            version = manifest.version;
-            src = self;
-            nativeBuildInputs = [ pkgs.zip ];
-            buildPhase = ''
-              zip -r extension.xpi manifest.json background.js
-            '';
-            installPhase = ''
-              mkdir -p $out/${extDir}
-              cp extension.xpi $out/${extDir}/${geckoId}.xpi
-            '';
-          };
-        }
-      );
+        in
+        # Firefox-only (declarativeNetRequest JS-blocking). No Chrome half, so no
+        # CRX and no signing key at all — just the unsigned XPI (AMO-signed for
+        # self-distribution in nixos-config).
+        nix-webext.lib.mkBrowserExtension {
+          inherit pkgs;
+          pname = "firefox-block-js";
+          version = manifest.version;
+          chrome = false;
+          src = self;
+          files = [ "manifest.json" "background.js" ];
+        });
     };
 }
